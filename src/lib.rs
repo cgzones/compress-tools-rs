@@ -432,6 +432,7 @@ where
                 writer_flags |= ffi::ARCHIVE_EXTRACT_OWNER;
             };
 
+            #[allow(clippy::cast_possible_wrap)]
             archive_result(
                 ffi::archive_write_disk_set_options(archive_writer, writer_flags as i32),
                 archive_writer,
@@ -629,17 +630,17 @@ unsafe extern "C" fn libarchive_seek_callback(
     client_data: *mut c_void,
     offset: ffi::la_int64_t,
     whence: c_int,
-) -> i64 {
+) -> ffi::la_int64_t {
     let pipe = (client_data as *mut SeekableReaderPipe).as_mut().unwrap();
     let whence = match whence {
-        0 => SeekFrom::Start(offset as u64),
+        0 => SeekFrom::Start(u64::try_from(offset).unwrap()),
         1 => SeekFrom::Current(offset),
         2 => SeekFrom::End(offset),
         _ => return -1,
     };
 
     match pipe.reader.seek(whence) {
-        Ok(offset) => offset as i64,
+        Ok(offset) => ffi::la_int64_t::try_from(offset).unwrap(),
         Err(_) => -1,
     }
 }
@@ -654,7 +655,7 @@ unsafe extern "C" fn libarchive_seekable_read_callback(
     *buffer = pipe.buffer.as_ptr() as *const c_void;
 
     match pipe.reader.read(pipe.buffer) {
-        Ok(size) => size as ffi::la_ssize_t,
+        Ok(size) => ffi::la_ssize_t::try_from(size).unwrap(),
         Err(e) => {
             let description = CString::new(e.to_string()).unwrap();
 
@@ -675,7 +676,7 @@ unsafe extern "C" fn libarchive_read_callback(
     *buffer = pipe.buffer.as_ptr() as *const c_void;
 
     match pipe.reader.read(pipe.buffer) {
-        Ok(size) => size as ffi::la_ssize_t,
+        Ok(size) => ffi::la_ssize_t::try_from(size).unwrap(),
         Err(e) => {
             let description = CString::new(e.to_string()).unwrap();
 

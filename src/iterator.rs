@@ -342,19 +342,19 @@ unsafe extern "C" fn libarchive_heap_seek_callback<R: Read + Seek>(
     client_data: *mut c_void,
     offset: ffi::la_int64_t,
     whence: c_int,
-) -> i64 {
+) -> ffi::la_int64_t {
     let pipe = (client_data as *mut HeapReadSeekerPipe<R>)
         .as_mut()
         .unwrap();
     let whence = match whence {
-        0 => SeekFrom::Start(offset as u64),
+        0 => SeekFrom::Start(u64::try_from(offset).unwrap()),
         1 => SeekFrom::Current(offset),
         2 => SeekFrom::End(offset),
         _ => return -1,
     };
 
     match pipe.reader.seek(whence) {
-        Ok(offset) => offset as i64,
+        Ok(offset) => ffi::la_int64_t::try_from(offset).unwrap(),
         Err(_) => -1,
     }
 }
@@ -371,7 +371,7 @@ unsafe extern "C" fn libarchive_heap_seekableread_callback<R: Read + Seek>(
     *buffer = pipe.buffer.as_ptr() as *const c_void;
 
     match pipe.reader.read(&mut pipe.buffer) {
-        Ok(size) => size as ffi::la_ssize_t,
+        Ok(size) => ffi::la_ssize_t::try_from(size).unwrap(),
         Err(e) => {
             let description = CString::new(e.to_string()).unwrap();
 
